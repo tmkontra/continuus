@@ -108,6 +108,11 @@ class Player:
     def __str__(self):
         return self.name
 
+    def __eq__(self, other):
+        if isinstance(other, Player):
+            return self.id == other.id
+        return False
+
     def select_card(self, i):
         return self.hand[i]
 

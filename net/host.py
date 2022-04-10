@@ -1,8 +1,10 @@
+import logging
+import multiprocessing
 import os
 import sys
 import threading
 from queue import Queue
-from typing import Union
+from typing import Union, Optional
 
 from console import ConsoleGame
 from console.interface import Interface
@@ -57,7 +59,7 @@ class NetworkedGame:
         self._console_game = ConsoleGame(use_console=self._interface._console)
         self._live = None
         self._state = "INIT"
-        self._next_move = Queue(maxsize=1)
+        self._player_moved = threading.Event()
         self._current_player = None
 
     def get_state(self):
@@ -116,24 +118,27 @@ class NetworkedGame:
         self._state = "PLAY"
         game = self.game
         while not game.winner():
-            current_player = game.next_player()
-            self._interface.echo(self._console_game._render_board(game, current_player))
-            self._wait_for_turn(current_player)
-            input("Enter to advance")
+            try:
+                current_player = game.next_player()
+                self._interface.echo(self._console_game._render_board(game, current_player))
+                self._wait_for_turn(current_player)
+                input("Enter to advance")
+            except Exception as e:
+                logging.exception(e)
 
     def _wait_for_turn(self, player: Player):
         self._state = "WAIT_TURN"
         self._current_player = player
-        while self._next_move.empty():
-            pass
-        card, coordinate = self._next_move.get()
-        self.player_move(player.id, card, coordinate)
+        self._state = "PLAYING_TURN"
+        self._player_moved.wait()
         self._current_player = None
+        self._player_moved.clear()
+        self._state = "PLAY"
 
-    def update_lobby(self, player):
-        player = self._console_game.add_player_to_lobby(player)
+    def update_lobby(self, player_name):
+        player_name = self._console_game.add_player_to_lobby(player_name)
         self._interface.enqueue(self._console_game._lobby.render())
-        return player
+        return player_name
 
     def render_teams(self):
         pass # TODO
@@ -150,9 +155,15 @@ class NetworkedGame:
     def player_move(self, player_id, card, coordinate):
         row, column = coordinate
         player = self._get_player(player_id)
-        return self.game.take_turn(row, column, card, player)
+        if self._current_player == player:
+            try:
+                result = self.game.take_turn(row, column, card, player)
+                self._player_moved.set()
+                return result
+            except:
+                logging.exception("Err during move")
 
-    def _get_player(self, player_id):
+    def _get_player(self, player_id) -> Optional[Player]:
         return self.game.get_player(player_id)
 
     @property

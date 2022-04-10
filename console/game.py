@@ -140,6 +140,15 @@ class ConsoleGame:
         return teams
 
     def _render_board(self, game: Game, player: Player, moves=None):
+        pcount = table.Table()
+        cells = [c for row in game.board.cells for c in row]
+        for p in game.players:
+            pc = len(list(filter(lambda c: c.player == p, cells)))
+            print(p)
+            print(p.name)
+            print(pc)
+            pcount.add_row(p.name, str(pc))
+        return pcount
         out = table.Table(
             min_width=(7 + 5)*game.board.COLUMNS,
             show_header=False, box=box.ROUNDED,

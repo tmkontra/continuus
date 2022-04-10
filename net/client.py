@@ -34,8 +34,8 @@ class GameClient:
         elif action == Action.MOVE:
             if self._console_game is None:
                 raise ValueError("Still in lobby")
-            card = prompt_choice("Select card to play", self._console_game.player.hand, str, print)
-            move = prompt_choice("Select cell to play", self._console_game.get_possible_moves(card), str, print)
+            card = prompt_choice("Select card to play", self.player.hand, str, print)
+            move = prompt_choice("Select cell to play", self._console_game._game.board.find_valid_cells(card, self.player), str, print)
             value = (card, move)
         else:
             value = None
@@ -66,8 +66,13 @@ class GameClient:
             except ValueError as e:
                 print(e)
                 continue
-            msg = Request(action, value, player_id=self._player_id)
-            reply = self._client.send(msg)
+            if action == Action.POLL:
+                self.poll()
+            else:
+                msg = Request(action, value, player_id=self._player_id)
+                reply = self._client.send(msg)
+                if reply.status == Status.ack:
+                    print("OK.")
 
     def poll(self):
         reply = self._client.send(Request(Action.POLL, "", self._player_id))
@@ -87,13 +92,23 @@ class GameClient:
         self._console_game._game = Game(new_state.players)
         self._console_game._game.board = new_state.board
         self._console_game.players = new_state.players
-        self.player = new_state.player
         self._refresh()
+
+    @property
+    def player(self):
+        return self._state.player
+
+    @property
+    def board(self):
+        return self._console_game._game.board
+
+    @property
+    def current_player_turn(self):
+        return self._state.current_player_turn
 
     def _render_lobby(self, stop):
         t = self._interface.display_until(self.__render_lobby, stop)
         while True:
-            print("polling lobby")
             self.poll()
             if self._console_game:
                 stop.set()
@@ -112,7 +127,6 @@ class GameClient:
     def _render_game(self, stop):
         t = self._interface.display_until(self.__render_board, stop)
         while not self.is_turn:
-            print("polling game waiting for turn")
             self.poll()
             self._interface.enqueue(self.__render_board())
         stop.set()
@@ -125,7 +139,7 @@ class GameClient:
     @property
     def is_turn(self):
         try:
-            return self._state.current_player_turn == self.player
+            return self.current_player_turn == self.player
         except:
             return False
 

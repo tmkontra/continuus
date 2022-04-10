@@ -19,11 +19,11 @@ class TeamsRequired(Exception):
 
 
 class ConsoleLobby:
-    def __init__(self, players: List[str] = None):
+    def __init__(self, player_names: List[str] = None):
         self._players = []
-        if players:
-            for player in players:
-                self.add_player(player)
+        if player_names:
+            for player_name in player_names:
+                self.add_player(player_name)
         self._open = False
 
     @property
@@ -39,7 +39,7 @@ class ConsoleLobby:
 
     def add_player(self, player_name):
         if self.is_open:
-            player = Player(secrets.token_hex(8), player_name)
+            player = Player(id=secrets.token_hex(8), name=player_name)
             self._players.append(player)
             return player
         else:
@@ -56,9 +56,4 @@ class ConsoleLobby:
         else:
             raise InvalidLobbyError("Must have between 2 and 12 players!")
         self._open = False
-        return self._get_players()
-
-    def _get_players(self):
-        return [Player(secrets.token_hex(8), name) for name in self._players]
-
-
+        return self._players

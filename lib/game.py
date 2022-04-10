@@ -22,9 +22,6 @@ class PublicGameState:
     board: Board
     current_player_turn: Player
 
-    def get_possible_moves(self, card):
-        self.board.find_valid_cells(card, self.player)
-
 
 class Game:
     def __init__(self, players: Union[List[str], List[Player]]):

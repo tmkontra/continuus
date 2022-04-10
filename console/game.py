@@ -1,33 +1,39 @@
-from typing import Callable, Any
+from dataclasses import dataclass
+from typing import Callable, Any, List
 
 from rich import console, table, box
 from rich.prompt import Prompt, Confirm
 from rich.style import Style
+from rich.table import Table
 from rich.text import Text
 
 from console import utils
+from console.lobby import ConsoleLobby
 from lib.game import Game
-from lib.model import Player, InvalidCellSelection, DeadCardError, Card
+from lib.model import Player, InvalidCellSelection, DeadCardError, Card, Board
+
 
 
 class ConsoleGame:
-    def __init__(self, use_players, use_console=None):
+    def __init__(self, use_console=None):
         self._console = use_console or console.Console()
-        self._players = use_players or []
+        self._players = []
         self._colors = {
             "red": "red",
             "black": "black",
             "wild": "white",
         }
+        self._lobby: ConsoleLobby = ConsoleLobby()
+        self._game: Game = None
         # self.teams = None
 
     def start(self):
-        if not self._players:
-            self.players = self._get_players()
-        # self.teams = self._get_teams()
-        self._play(Game(self._players))
+        self.open_lobby()
+        self.close_lobby()
+        self._play()
 
-    def _play(self, game):
+    def _play(self):
+        game = self._game
         while not game.winner():
             current_player: Player = game.next_player()
             self._echo(f"{current_player} is up next")
@@ -85,22 +91,28 @@ class ConsoleGame:
 
     @players.setter
     def players(self, value):
-        self._players = [Player(i, name) for i, name in enumerate(value)]
+        self._players = [Player(str(i), name) for i, name in enumerate(value)]
 
     def _echo(self, message):
         self._console.print(message)
 
+    def open_lobby(self, lobby_handler=None):
+        self._lobby.open()
+        if lobby_handler is not None:
+            lobby_handler()
+        else:
+            self._local_lobby(self._lobby)
+
     @staticmethod
-    def _get_players():
+    def _local_lobby(lobby):
         players = []
         while True and len(players) < 12:
             player = Prompt.ask("Enter a players name")
-            players.append(player)
+            lobby.add_player(player)
             if len(players) >= 2:
                 more = Confirm.ask("Add another player?")
                 if not more:
                     break
-        return players
 
     def _get_teams(self):
         teams = []
@@ -180,3 +192,11 @@ class ConsoleGame:
         for line in [header, text, moveline, header]:
             outtext.append(line)
         return outtext
+
+    def add_player_to_lobby(self, player):
+        return self._lobby.add_player(player)
+
+    def close_lobby(self):
+        players = self._lobby.close()
+        self._players = players
+        self._game = Game(self._players)

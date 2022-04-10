@@ -7,7 +7,7 @@ name = "pypi"
 tqdm = "*"
 rich = "*"
 pyzmq = "*"
-keyboard = "*"
+pytermgui = "*"
 
 [dev-packages]
 

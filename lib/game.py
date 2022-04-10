@@ -1,9 +1,22 @@
 import collections
 import itertools
 import random
+from dataclasses import dataclass, field
 from typing import List
 
 from lib.model import Player, Card, generate_deck, Board, Color
+
+
+@dataclass
+class PublicPlayer(Player):
+    hand: List = field(default_factory=lambda: list)
+
+
+@dataclass
+class PublicGameState:
+    player: Player
+    players: List[Player]
+    board: Board
 
 
 class Game:
@@ -16,6 +29,9 @@ class Game:
         self._colors = {
             self.players[i]: color
             for i, color in enumerate([Color.RED, Color.BLUE, Color.GREEN][:len(players)])
+        }
+        self._players_by_id = {
+            p.id: p for p in self.players
         }
         self._turn_order = itertools.cycle(self.players)
         self.win_count = 2 if len(self.players) < 3 else 1
@@ -30,6 +46,9 @@ class Game:
 
     def next_player(self) -> Player:
         return next(self._turn_order)
+
+    def get_player(self, player_id):
+        return self._players_by_id.get(player_id)
 
     def winner(self):
         sequence_counts = collections.Counter(self._find_sequences())
@@ -84,3 +103,12 @@ class Game:
         doubled = single * 2
         random.shuffle(doubled)
         return doubled
+
+    def get_state_perspective(self, player: Player):
+        return PublicGameState(
+            players=[
+                PublicPlayer(id=p.id, name=p.name) for p in self.players
+            ],
+            player=player,
+            board=self.board
+        )

@@ -9,26 +9,15 @@ class Strategy:
         pass
 
 
-class FifoStrategy(Strategy):
-    """Selects the first available card (FIFO), and the first available move (Top-left of the board)
-    """
-
-    def select_card(self, hand):
-        return 0
-
-    def select_move(self, moves):
-        return 0
-
-
 class RandomStrategy(Strategy):
     """Selects a random card, and a random move
     """
 
     def select_card(self, hand) -> int:
-        return random.randint(1, len(hand))
+        return random.randint(0, len(hand)-1)
 
     def select_move(self, moves) -> int:
-        return random.randint(1, len(moves))
+        return random.randint(0, len(moves)-1)
 
 
 class StrategyProvider:

@@ -11,9 +11,9 @@ from lib.model import Player, InvalidCellSelection, DeadCardError, Card
 
 
 class ConsoleGame:
-    def __init__(self):
-        self._console = console.Console()
-        self._players = []
+    def __init__(self, use_players, use_console=None):
+        self._console = use_console or console.Console()
+        self._players = use_players or []
         self._colors = {
             "red": "red",
             "black": "black",
@@ -22,7 +22,8 @@ class ConsoleGame:
         # self.teams = None
 
     def start(self):
-        self.players = self._get_players()
+        if not self._players:
+            self.players = self._get_players()
         # self.teams = self._get_teams()
         self._play(Game(self._players))
 

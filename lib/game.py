@@ -2,25 +2,32 @@ import collections
 import itertools
 import random
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Union
 
 from lib.model import Player, Card, generate_deck, Board, Color
 
 
 @dataclass
 class PublicPlayer(Player):
-    hand: List = field(default_factory=lambda: list)
+    hand: List = field(default_factory=list)
+
+    def __hash__(self):
+        return hash(self.id)
 
 
 @dataclass
 class PublicGameState:
     player: Player
-    players: List[Player]
+    players: List[PublicPlayer]
     board: Board
+    current_player_turn: Player
+
+    def get_possible_moves(self, card):
+        self.board.find_valid_cells(card, self.player)
 
 
 class Game:
-    def __init__(self, players: List[str]):
+    def __init__(self, players: Union[List[str], List[Player]]):
         self.players: List[Player] = (
             [Player(str(i), name) for i, name in enumerate(players)]
             if isinstance(players[0], str)  # string names
@@ -104,11 +111,12 @@ class Game:
         random.shuffle(doubled)
         return doubled
 
-    def get_state_perspective(self, player: Player):
+    def get_state_perspective(self, player: Player, current_player_turn: Player):
         return PublicGameState(
             players=[
                 PublicPlayer(id=p.id, name=p.name) for p in self.players
             ],
             player=player,
-            board=self.board
+            board=self.board,
+            current_player_turn=current_player_turn
         )

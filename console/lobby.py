@@ -13,8 +13,10 @@ class LobbyError(Exception):
 class InvalidLobbyError(Exception):
     pass
 
+
 class TeamsRequired(Exception):
     pass
+
 
 class ConsoleLobby:
     def __init__(self, players: List[str] = None):

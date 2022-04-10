@@ -1,17 +1,14 @@
-from dataclasses import dataclass
-from typing import Callable, Any, List
+from typing import Callable, Any
 
 from rich import console, table, box
 from rich.prompt import Prompt, Confirm
 from rich.style import Style
-from rich.table import Table
 from rich.text import Text
 
 from console import utils
 from console.lobby import ConsoleLobby
 from lib.game import Game
-from lib.model import Player, InvalidCellSelection, DeadCardError, Card, Board
-
+from lib.model import Player, InvalidCellSelection, DeadCardError, Card
 
 
 class ConsoleGame:

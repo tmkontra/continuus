@@ -4,7 +4,7 @@ Too difficult to get working, switched to zeromq
 """
 import socketserver
 
-from net.game import ActionDispatch
+from net.dispatch import ActionDispatch
 
 
 class GameServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):

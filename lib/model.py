@@ -268,14 +268,10 @@ class Board:
             cells.append(row)
         return cls(cells=cells)
 
-    def find_sequences_for_player(self, player: Player):
-        for sequence in matrix.all_submatrix(self.cells, self.SEQUENCE_LENGTH):
-            occupied = [
-                cell.player == player or cell.is_wild
-                for cell in sequence
-            ]
-            if all(occupied):
-                yield player
+    def find_sequences_for_player(self, player: Player, win_count: int):
+        def condition(cell: Cell):
+            return cell.player == player or cell.is_wild
+        yield from matrix.get_valid_sequences(self.cells, self.SEQUENCE_LENGTH, condition, win_count)
 
     def find_valid_cells(self, card: 'Card', player: 'Player'):
         if card.is_one_eyed_jack:

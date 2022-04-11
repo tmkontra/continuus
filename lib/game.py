@@ -2,7 +2,7 @@ import collections
 import itertools
 import random
 from dataclasses import dataclass, field
-from typing import List, Union
+from typing import List, Union, Tuple, Optional
 
 from lib.model import Player, Card, generate_deck, Board, Color
 
@@ -54,10 +54,13 @@ class Game:
     def get_player(self, player_id):
         return self._players_by_id.get(player_id)
 
-    def winner(self):
-        sequence_counts = collections.Counter(self._find_sequences())
+    def winner(self) -> Optional[Tuple[Player, list]]:
+        sequences = self._find_sequences()
+        sequence_counts = collections.Counter({
+            p: len(s) for p, s in sequences.items()
+        })
         winning, high_count = next(iter(sequence_counts.most_common(1)), (None, 0))
-        return winning if high_count >= self.win_count else None
+        return winning, sequences[winning] if high_count >= self.win_count else None
 
     def take_turn(self, row, column, card: Card, player: Player):
         cell = self.board.get_cell(row, column)
@@ -74,8 +77,11 @@ class Game:
         player.draw_card(self.draw_card)
 
     def _find_sequences(self):
+        sequences = collections.defaultdict(list)
         for player in self.players:
-            yield from self.board.find_sequences_for_player(player)
+            for sequence in self.board.find_sequences_for_player(player, self.win_count):
+                sequences[player].append(sequence)
+        return sequences
 
     def _deal_initial_hands(self):
         card_count = {

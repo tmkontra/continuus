@@ -12,13 +12,13 @@ from net.utils import make_thread
 class Interface:
     def __init__(self):
         self._console = Console()
-        self._update = Queue()
+        self._update = Queue(maxsize=1)
 
     def echo(self, message):
         self._console.print(message)
 
     def enqueue(self, render):
-        self._update.put(render)
+        self._update.put(render, block=True)
 
     def display_until(self, render, stop):
         display_thread = make_thread(target=self.live, args=(render, stop))
@@ -28,7 +28,7 @@ class Interface:
         with Live(render(), console=self._console, transient=False, auto_refresh=False) as live:
             while not stop.is_set():
                 if not self._update.empty():
-                    update = self._update.get(block=False)
+                    update = self._update.get(block=True)
                     live.update(update)
                     live.refresh()
             live.refresh()

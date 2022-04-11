@@ -1,5 +1,4 @@
 import logging
-import pickle
 import time
 
 import zmq
@@ -15,14 +14,22 @@ class ClientZMQ:
         addr = "ipc://" + addr
         socket.connect(addr)
 
-    def send(self, msg: Request):
-        out = pickle.dumps(msg)
-        self.socket.send(out)
-        return self._recv()
+    def send(self, msg: Request, immediate=False):
+        out = Request.serialize(msg)
+        immediate = zmq.NOBLOCK if immediate else 0
+        try:
+            self.socket.send(out, immediate)
+            return self._recv()
+        except zmq.error.Again:
+            if immediate:
+                return None
+            else:
+                raise
 
-    def _recv(self) -> Reply:
-        received: bytes = self.socket.recv()
-        return pickle.loads(received)
+    def _recv(self, immediate=False) -> Reply:
+        immediate = zmq.NOBLOCK if immediate else 0
+        received: bytes = self.socket.recv(immediate)
+        return Reply.deserialize(received)
 
 
 class HostServerZMQ:

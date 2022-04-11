@@ -7,6 +7,9 @@ ReplyArgs = Tuple[Status, str]
 
 
 class ActionDispatch:
+    """Interface between action receiver (terminal, network) and game
+    """
+
     def handle_join(self, name) -> Union[None, ReplyArgs]:
         pass
 

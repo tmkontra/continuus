@@ -44,7 +44,7 @@ class ConsoleGame:
                 move = self._select_move_to_make(game, current_player, moves)
                 row, column = move
                 game.take_turn(row, column, card, current_player)
-                break
+                return (card, move)
             except InvalidCellSelection as e:
                 continue
 
@@ -140,15 +140,6 @@ class ConsoleGame:
         return teams
 
     def _render_board(self, game: Game, player: Player, moves=None):
-        pcount = table.Table()
-        cells = [c for row in game.board.cells for c in row]
-        for p in game.players:
-            pc = len(list(filter(lambda c: c.player == p, cells)))
-            print(p)
-            print(p.name)
-            print(pc)
-            pcount.add_row(p.name, str(pc))
-        return pcount
         out = table.Table(
             min_width=(7 + 5)*game.board.COLUMNS,
             show_header=False, box=box.ROUNDED,
@@ -175,11 +166,14 @@ class ConsoleGame:
     def _fmt_cell(self, cell, get_color, player, move=None):
         CELL_HEADER = "*******\n"
 
+        move_cell_style = lambda text: text.stylize(Style(color="white", bgcolor=get_color(player).value)) 
+        cell_style = lambda text: text.stylize(self._card_color(cell.card))
         if cell.is_occupied:
             header = Text(CELL_HEADER, get_color(cell.player).value)
             occupy = ("O", get_color(cell.player).value)
             if move:
-                header.stylize(Style(color="white", bgcolor=get_color(player).value))
+                # header.stylize(Style(color="white", bgcolor=get_color(player).value))
+                cell_style = move_cell_style
                 movetext = (f" {move}", get_color(player).value)
             else:
                 movetext = ""
@@ -188,18 +182,19 @@ class ConsoleGame:
             occupy = ""
             if move:
                 header.stylize(Style(color="white", bgcolor=get_color(player).value))
+                cell_style = move_cell_style
                 movetext = (str(move), get_color(player).value)
             else:
                 movetext = ""
         moveline = Text.assemble(occupy, movetext, "\n")
         text = Text.assemble(cell.card.debug, "\n")
-        text.stylize(self._card_color(cell.card))
+        cell_style(text)
         outtext = Text()
-        for line in [header, text, moveline, header]:
+        for line in [text, moveline]:
             outtext.append(line)
         return outtext
 
-    def add_player_to_lobby(self, player):
+    def add_player_to_lobby(self, player) -> Player:
         return self._lobby.add_player(player)
 
     def close_lobby(self):

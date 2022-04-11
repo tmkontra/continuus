@@ -1,7 +1,7 @@
 import enum
 import pickle
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Any
 
 
 class Status(enum.IntEnum):
@@ -30,7 +30,7 @@ class Serde:
 @dataclass
 class Request(Serde):
     action: Action
-    value: str
+    value: Any
     player_id: Optional[str]
 
 

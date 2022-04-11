@@ -1,15 +1,10 @@
 import sys
 import threading
-import time
-
-from rich import prompt
 
 from console import ConsoleGame
-from console.lobby import ConsoleLobby
-from console.utils import prompt_choice
-from lib.game import PublicGameState, Game
 from console.interface import Interface
-
+from console.lobby import ConsoleLobby
+from lib.game import PublicGameState, Game
 from net.protocol import Request, Action, Status
 from net.zmq import ClientZMQ
 
@@ -22,57 +17,57 @@ class GameClient:
         self._lobby: ConsoleLobby = None
         self._console_game: ConsoleGame = None
         self._state: PublicGameState = None
+        self._refresh = None
 
-    def get_action(self):
-        available_actions = [
-            a for a in Action
-            if (a != Action.JOIN) or (a == Action.JOIN and self._player_id is None)
-        ]
-        action = prompt_choice("Select action", available_actions, lambda r: r.value, print)
-        if action == Action.JOIN:
-            value = input("Player name: ")
-        elif action == Action.MOVE:
-            if self._console_game is None:
-                raise ValueError("Still in lobby")
-            card = prompt_choice("Select card to play", self.player.hand, str, print)
-            move = prompt_choice("Select cell to play", self._console_game._game.board.find_valid_cells(card, self.player), str, print)
-            value = (card, move)
-        else:
-            value = None
-        return action, value
+    @property
+    def game_started(self):
+        return self._console_game is not None
 
-    def get_input(self, message: str):
-        return prompt.Prompt.ask(message)
-
-    def render(self):
-        stop = threading.Event()
-        if self._console_game:
-            self._render_game(stop)
-        elif self._lobby:
-            self._render_lobby(stop)
+    @property
+    def game_winner(self):
+        return self._console_game._game.winner()
 
     def run(self):
-        player_name = self.get_input("Enter player name")
-        resp = self._client.send(Request(Action.JOIN, player_name, player_id=self._player_id))
-        if resp.status == Status.ack:
-            print("Got player id", resp.value)
-            self._player_id = resp.value
+        self.game_loop()
+
+    def game_loop(self):
+        while not self._player_id:
+            self.join_game()
+        self._interface.echo("Entering lobby!")
         self.poll()
-        self.render()
-        while True:
-            self.render()
-            try:
-                action, value = self.get_action()
-            except ValueError as e:
-                print(e)
-                continue
-            if action == Action.POLL:
+        stop_lobby, lobby_thread, self._refresh = self._render_lobby()
+        while not self.game_started:
+            self.poll()
+        stop_lobby.set()
+        lobby_thread.join()
+        self._interface.echo("Game beginning!")
+        while True:  # wait turn, move, repeat
+            stop_board, board_thread, self._refresh = self._render_game()
+            while not self.is_turn:
                 self.poll()
-            else:
-                msg = Request(action, value, player_id=self._player_id)
-                reply = self._client.send(msg)
-                if reply.status == Status.ack:
-                    print("OK.")
+            self.poll()
+            stop_board.set()
+            board_thread.join()
+            self._handle_player_turn()
+            self._refresh = None
+            self.poll()
+
+    def join_game(self):
+        player_name = self._interface.prompt("Enter player name")
+        resp = self._client.send(Request(Action.JOIN, player_name, player_id=self._player_id), immediate=True)
+        if resp is None:
+            self._interface.echo("No host found")
+            return
+        if resp.status == Status.ack:
+            self._player_id = resp.value
+        else:
+            self._interface.echo("Lobby was not yet open, please try again.")
+
+    def _handle_player_turn(self):
+        card, move = self._console_game._handle_turn(self._console_game._game, self.player)
+        message = Request(Action.MOVE, (card, move), self._player_id)
+        reply = self._client.send(message)
+        return reply
 
     def poll(self):
         reply = self._client.send(Request(Action.POLL, "", self._player_id))
@@ -83,16 +78,16 @@ class GameClient:
                     self._lobby = new_state
                 elif isinstance(new_state, PublicGameState):
                     self.set_state(new_state)
+                if self._refresh is not None:
+                    self.refresh_display(self._refresh)
 
     def set_state(self, new_state: PublicGameState):
-        print('set state')
         if not self._console_game:
             self._console_game = ConsoleGame(use_console=self._interface._console)
         self._state = new_state
         self._console_game._game = Game(new_state.players)
         self._console_game._game.board = new_state.board
         self._console_game.players = new_state.players
-        self._refresh()
 
     @property
     def player(self):
@@ -106,35 +101,24 @@ class GameClient:
     def current_player_turn(self):
         return self._state.current_player_turn
 
-    def _render_lobby(self, stop):
+    def _render_lobby(self):
+        stop = threading.Event()
         t = self._interface.display_until(self.__render_lobby, stop)
-        while True:
-            self.poll()
-            if self._console_game:
-                stop.set()
-                t.join()
-                return
-            else:
-                self._interface.enqueue(self.__render_lobby())
+        return stop, t, self.__render_lobby
 
     def __render_lobby(self):
         return self._lobby.render()
 
-    def _refresh(self):
-        render = self._console_game._render_board(self._console_game._game, self.player)
-        self._interface.enqueue(render)
-
-    def _render_game(self, stop):
+    def _render_game(self):
+        stop = threading.Event()
         t = self._interface.display_until(self.__render_board, stop)
-        while not self.is_turn:
-            self.poll()
-            self._interface.enqueue(self.__render_board())
-        stop.set()
-        t.join()
-        self._interface.enqueue(self.__render_board())
+        return stop, t, self.__render_board
 
     def __render_board(self):
         return self._console_game._render_board(self._console_game._game, self.player)
+
+    def refresh_display(self, render):
+        self._interface.enqueue(render())
 
     @property
     def is_turn(self):

@@ -37,7 +37,7 @@ class ConsoleLobby:
             table.add_row(player.name)
         return table
 
-    def add_player(self, player_name):
+    def add_player(self, player_name) -> Player:
         if self.is_open:
             player = Player(id=secrets.token_hex(8), name=player_name)
             self._players.append(player)

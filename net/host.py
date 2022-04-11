@@ -17,13 +17,14 @@ from net.zmq import HostServerZMQ
 
 
 class NetworkedGameDispatch(ActionDispatch):
-    def __init__(self, game: 'NetworkedGame'):
+    def __init__(self, game: 'GameHost'):
         self.game = game
 
     def handle_join(self, name) -> Union[None, ReplyArgs]:
         if game.get_state() == "LOBBY":
             player: Player = self.game.update_lobby(name)
             return Status.ack, player.id
+        return Status.err, "Lobby not open"
 
     def kick_player(self, player_id):
         # TODO: implement disconnect
@@ -44,20 +45,23 @@ class NetworkedGameDispatch(ActionDispatch):
             return Status.err, None
 
     def get_state(self, player_id):
-        if game.get_state() == "LOBBY":
-            return self.game._console_game._lobby
-        else:
-            return self.game.get_player_state(player_id)
+        try:
+            if game.get_state() == "LOBBY":
+                return self.game._console_game._lobby
+            else:
+                return self.game.get_player_state(player_id)
+        except AttributeError:
+            return None
 
 
-class NetworkedGame:
+
+class GameHost:
     def __init__(self, address):
         self._interface = Interface()
         self._dispatch = NetworkedGameDispatch(self)
         self._server = HostServerZMQ(self._dispatch, address)
         self._server_thread = None
         self._console_game = ConsoleGame(use_console=self._interface._console)
-        self._live = None
         self._state = "INIT"
         self._player_moved = threading.Event()
         self._current_player = None
@@ -71,10 +75,11 @@ class NetworkedGame:
 
     def start(self):
         try:
+            self._host_name = self._get_host_name()
             self._start_server()
             self._do_lobby()
             # self._teams()
-            self._play()
+            self._play_until_winner()
         finally:
             try:
                 os.unlink(self._server.server_address)
@@ -90,6 +95,7 @@ class NetworkedGame:
 
     def _handle_lobby(self):
         stop = threading.Event()
+        self._host_player = self.update_lobby(self._host_name)
         self._state = "LOBBY"
         display = self._interface.display_until(self._console_game._lobby.render, stop)
         self.echo(">> Press enter to close lobby and begin game")
@@ -114,7 +120,7 @@ class NetworkedGame:
     #         self.echo("Press enter to save teams ")
     #         self._interface.wait_for_input()
 
-    def _play(self):
+    def _play_until_winner(self):
         self._state = "PLAY"
         game = self.game
         while not game.winner():
@@ -122,26 +128,28 @@ class NetworkedGame:
                 current_player = game.next_player()
                 self._interface.echo(self._console_game._render_board(game, current_player))
                 self._wait_for_turn(current_player)
-                input("Enter to advance")
             except Exception as e:
                 logging.exception(e)
 
     def _wait_for_turn(self, player: Player):
         self._state = "WAIT_TURN"
         self._current_player = player
-        self._state = "PLAYING_TURN"
-        self._player_moved.wait()
-        self._current_player = None
+        if self._current_player == self._host_player:
+            self._handle_host_turn()
+        else:
+            self._state = "PLAYING_TURN"
+            self._player_moved.wait()
         self._player_moved.clear()
+        self._current_player = None
         self._state = "PLAY"
 
     def update_lobby(self, player_name):
-        player_name = self._console_game.add_player_to_lobby(player_name)
+        player = self._console_game.add_player_to_lobby(player_name)
         self._interface.enqueue(self._console_game._lobby.render())
-        return player_name
+        return player
 
     def render_teams(self):
-        pass # TODO
+        pass  # TODO
 
     def echo(self, message):
         self._interface.echo(message)
@@ -170,11 +178,17 @@ class NetworkedGame:
     def game(self):
         return self._console_game._game
 
+    def _get_host_name(self):
+        return self._interface.prompt("Enter your name")
+
+    def _handle_host_turn(self):
+        return self._console_game._handle_turn(self._console_game._game, self._host_player)
+
 
 if __name__ == "__main__":
     try:
         addr = sys.argv[1]
-        game = NetworkedGame(addr)
+        game = GameHost(addr)
         game.start()
     except Exception as e:
         print(e)

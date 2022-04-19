@@ -87,7 +87,7 @@ class Card:
 
     @property
     def debug(self):
-        return f"{self.rank.debug}|{self.suit.name[0]}"
+        return f"{self.rank.debug}{self.suit.name[0]}"
 
 
 class Color(enum.Enum):
@@ -308,3 +308,15 @@ class Board:
                 if not cell.is_occupied and not cell.is_wild:
                     moves.append((r, c))
         return moves
+
+if __name__ == "__main__":
+    import json
+    board = Board.new_board()
+    rows = []
+    for row in board.cells:
+        orow = []
+        for cell in row:
+            card = cell.card
+            orow.append(card.debug)
+        rows.append(orow)
+    print(json.dumps(rows, indent=4))

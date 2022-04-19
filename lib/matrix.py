@@ -1,20 +1,20 @@
 import itertools
 from typing import Tuple, Iterator, Callable, List, Sequence, Set
 
-from lib.model import Cell
 
 Coordinate = Tuple[int, int]
-SubCell = Tuple[Coordinate, Cell]
-CSequence = Sequence[SubCell]  # Cell Sequence
+SubCell = Tuple[Coordinate, 'Cell']
+CSequence = Sequence[SubCell]  # 'Cell' Sequence
 MultiSequence = Iterator[CSequence]
-Matrix = List[List[Cell]]
-CellCondition = Callable[[Cell], bool]
+Matrix = List[List['Cell']]
+CellCondition = Callable[['Cell'], bool]
 
 
 def get_valid_sequences(board: Matrix, sequence_length: int, cell_condition: CellCondition, win_count: int):
-    seqs = _find_sequences_meeting_condition(board, sequence_length, cell_condition)
+    seqs = set(_find_sequences_meeting_condition(board, sequence_length, cell_condition))
     distinct = _distinct_sequences(seqs, win_count)
     return distinct
+
 
 def _find_sequences_meeting_condition(grid, sequence_length: int, cell_condition: CellCondition) -> MultiSequence:
     for sequence in _all_submatrices(grid, sequence_length):

@@ -54,7 +54,6 @@ class NetworkedGameDispatch(ActionDispatch):
             return None
 
 
-
 class GameHost:
     def __init__(self, address):
         self._interface = Interface()
@@ -80,11 +79,14 @@ class GameHost:
             self._do_lobby()
             # self._teams()
             self._play_until_winner()
+        except:
+            logging.exception("Game crashed")
         finally:
             try:
                 os.unlink(self._server.server_address)
             except:
                 pass
+
 
     def _start_server(self):
         self._server_thread = make_thread(target=self._server.serve_forever)
@@ -130,6 +132,10 @@ class GameHost:
                 self._wait_for_turn(current_player)
             except Exception as e:
                 logging.exception(e)
+        self.emit_winner(game.winner())
+
+    def emit_winner(self, winner):
+        self.echo("Winner: {}".format(winner))
 
     def _wait_for_turn(self, player: Player):
         self._state = "WAIT_TURN"
@@ -191,5 +197,5 @@ if __name__ == "__main__":
         game = GameHost(addr)
         game.start()
     except Exception as e:
-        print(e)
+        logging.exception("Error")
         sys.exit(1)

@@ -60,7 +60,7 @@ class Game:
             p: len(s) for p, s in sequences.items()
         })
         winning, high_count = next(iter(sequence_counts.most_common(1)), (None, 0))
-        return winning, sequences[winning] if high_count >= self.win_count else None
+        return (winning, sequences[winning]) if high_count >= self.win_count else None
 
     def take_turn(self, row, column, card: Card, player: Player):
         cell = self.board.get_cell(row, column)
